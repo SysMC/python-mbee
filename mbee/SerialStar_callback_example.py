@@ -1,11 +1,11 @@
 ﻿# Модуль с примерами использования библиотеки MBee-Python для работы с модулями MBee производства фирмы "Системы, модули и компоненты" методом callback-функций.
-# "Системы модули и компоненты" ("СМК"). 2018. Москва.
+# "Системы модули и компоненты" ("СМК"). 2020. Москва.
 # Распространяется свободно. Надеемся, что программные продукты, созданные
 # с помощью данной библиотеки будут полезными, однако никакие гарантии, явные или
 # подразумеваемые не предоставляются.
 # The MIT License(MIT)
 # MBee-Python Library.
-# Copyright © 2017 Systems, modules and components. Moscow. Russia.
+# Copyright © 2020 Systems, modules and components. Moscow. Russia.
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 # documentation files(the "Software"), to deal in the Software without restriction, including without limitation
 # the rights to use, copy, modify, merge, publish, distribute, sublicense, and / or sell copies of the Software,
@@ -30,12 +30,12 @@ import time
 from threading import Timer
 
 # Присваиваем имя COM-порта.
-PORT = "COM15"
+PORT = "COM4"
 
 # Определяем битовую скорость COM-порта.
 BITRATE = 9600
 
-# Назначаем период таймера, который будет использоваться для периодической отправки пакетов удаленному модулю.
+# Назначаем период таймера в секундах, который будет использоваться для периодической отправки пакетов удаленному модулю.
 TICK_TIME = 1
 events = {"TIMER_EVENTS": False}
 
@@ -67,14 +67,21 @@ timer = Timer(TICK_TIME, timer_set_event) #Создание компонента
 
 timer.start()
 
-
 # Определение callback-функций для всех типов пакетов.
 def frame_81_received(packet):
     print("Received 81-frame.")
     print(packet)
+    
+def frame_82_received(packet):
+    print("Received 82-frame.")
+    print(packet)    
 
 def frame_83_received(packet):
     print("Received 83-frame.")
+    print(packet)
+
+def frame_84_received(packet):
+    print("Received 84-frame.")
     print(packet)
     
 def frame_87_received(packet):
@@ -105,13 +112,23 @@ def frame_8F_received(packet):
     print("Received 8F-frame.")
     print(packet)
     
+def frame_90_received(packet):
+    print("Received 90-frame.")
+    print(packet)    
+    
 def frame_97_received(packet):
     print("Received 97-frame.")
     print(packet)
+    
+def frame_98_received(packet):
+    print("Received 98-frame.")
+    print(packet)    
 
 # Регистрирация callback-фукнций для всех типов фреймов.
 mbee.callback_registring("81", frame_81_received)
+mbee.callback_registring("82", frame_82_received)
 mbee.callback_registring("83", frame_83_received)
+mbee.callback_registring("84", frame_84_received)
 mbee.callback_registring("87", frame_87_received)
 mbee.callback_registring("88", frame_88_received)
 mbee.callback_registring("89", frame_89_received)
@@ -119,7 +136,9 @@ mbee.callback_registring("8A", frame_8A_received)
 mbee.callback_registring("8B", frame_8B_received)
 mbee.callback_registring("8C", frame_8C_received)
 mbee.callback_registring("8F", frame_8F_received)
+mbee.callback_registring("90", frame_90_received)
 mbee.callback_registring("97", frame_97_received)
+mbee.callback_registring("98", frame_98_received)
 
 while(True):
     try:

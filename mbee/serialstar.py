@@ -112,13 +112,20 @@ class SerialStar:
         self.ser = Serial(self.port, self.baud, timeout = self.RX_TIMEOUT, write_timeout = self.WR_TIMEOUT)
         self.ser.reset_input_buffer() 
         self.ser.reset_output_buffer() 
-        self.on_rx_81_8F_frame_callback  = None
+        self.on_rx_81_frame_callback = None
+        self.on_rx_82_frame_callback = None
         self.on_rx_83_frame_callback = None
-        self.on_rx_87_88_89_frame_callback = None 
-        self.on_rx_8A_frame_callback = None 
+        self.on_rx_84_frame_callback = None
+        self.on_rx_87_frame_callback = None
+        self.on_rx_88_frame_callback = None
+        self.on_rx_89_frame_callback = None
+        self.on_rx_8A_frame_callback = None
         self.on_rx_8B_frame_callback = None
-        self.on_rx_8C_frame_callback = None 
+        self.on_rx_8C_frame_callback = None
+        self.on_rx_8F_frame_callback = None
+        self.on_rx_90_frame_callback = None
         self.on_rx_97_frame_callback = None
+        self.on_rx_98_frame_callback = None
 
     def add_hex2(self, hex1, hex2):
         return hex(int(hex1, 16) + int(hex2, 16))
@@ -221,9 +228,13 @@ class SerialStar:
     # Зарегистрированная функция будет вызываться каждый раз при получении от модуля данного типа пакета.
     def callback_registring(self, frame_type, function_name):
         if frame_type == "81":
-            self.on_rx_81_frame_callback = function_name 
+            self.on_rx_81_frame_callback = function_name
+        elif frame_type == "82":
+            self.on_rx_82_frame_callback = function_name 
         elif frame_type == "83":
             self.on_rx_83_frame_callback = function_name 
+        elif frame_type == "84":
+            self.on_rx_84_frame_callback = function_name             
         elif frame_type == "87":
             self.on_rx_87_frame_callback = function_name 
         elif frame_type == "88":
@@ -237,9 +248,13 @@ class SerialStar:
         elif frame_type == "8C":
             self.on_rx_8C_frame_callback = function_name 
         elif frame_type == "8F":
-            self.on_rx_8F_frame_callback = function_name 
+            self.on_rx_8F_frame_callback = function_name
+        elif frame_type == "90":
+            self.on_rx_90_frame_callback = function_name 
         elif frame_type == "97":
-            self.on_rx_97_frame_callback = function_name 
+            self.on_rx_97_frame_callback = function_name
+        elif frame_type == "98":
+            self.on_rx_98_frame_callback = function_name             
             
     def send_local_at(self, frame_type, frame_id, at_command, at_parameter = ""):
         if len(at_command) != 2:
@@ -306,7 +321,7 @@ class SerialStar:
     # 3 - зарезервирован.@n
     # 4 - управление режимом CCA (определение занятости частотного канала перед передачей пакета в эфир): 0 - анализ занятости эфира проводится перед передачей данного пакета, 1 - CCA выключено.@n
     # 5 - управление шифрованием: 0 - данный пакет будет передан незашифрованным, 1 - шифрование включено.@n
-    # 6 - управление буферизацией: 0 - данный пакет будет сразу передан в эфир, 1 - данный пакет будет предан в эфир только после получения пакета от удаленного модуля, которому этот пакет предназначен.
+    # 6 - управление буферизацией: 0 - данный пакет будет сразу передан в эфир, 1 - данный пакет будет передан в эфир только после получения пакета от удаленного модуля, которому этот пакет предназначен.
     # Буферизация используется для управления модулями, находящимися в спящем режиме.@n
     # 7 - зарезервирован.@n
     def send_tx_request(self, frame_id, destination_id, data, options = ""):
@@ -395,25 +410,25 @@ class SerialStar:
 
     ## Получение фрейма с данными от удаленного модуля, переданными с байтом опций: API-фрейм 0x81.
     # Данная функция применяется для опроса приемного буфера последовательного порта и поиска в нем фрейма 0x81. Поиск осуществляется до первого найденного фрейма данного типа. При этом все прочие пакеты,
-    # принятые до первого пакета 0x10 теряются. Делается ограниченное число попыток получения данного типа фрейма. Число попыток регулируется константой LOCAL_RESPONSE_RETRY_COUNT и равно 
+    # принятые до первого пакета 0x81 теряются. Делается ограниченное число попыток получения данного типа фрейма. Число попыток регулируется константой LOCAL_RESPONSE_RETRY_COUNT и равно 
     # по-умолчанию 1. Функция обычно применяется, если опрос модуля осуществляется из основного скрипта периодической проверкой, а не с помощью callback-функций.
     # @return В случае успешного приема пакета словарь (dictionary) следующего вида:@n
     # ["DELIMITER"]: "7E" - стартовый байт фрейма.@n
     # ["LENGTH"]: xx - длина пакета  в байтах между полями length и checksum (то есть всегда на 4 байта меньше, чем полная длина принятого пакета). Десятичное число.@n
     # ["FRAME_TYPE"]: "xx" - "81" тип фрейма.@n
-    # ["SOURCE_ADDRESS_DEC"]: "xxxxx" - адрес отправителя в виде строки десятичных символов.@n
-    # ["SOURCE_ADDRESS_HEX"]: "xxxx" - адрес отправителя в виде строки шестнадцатеричных символов без префикса 0x.@n
+    # ["SOURCE_ADDRESS_DEC"]: "xxxxx" - адрес источника пакета в виде строки десятичных символов.@n
+    # ["SOURCE_ADDRESS_HEX"]: "xxxx" - адрес источника пакета в виде строки шестнадцатеричных символов без префикса 0x.@n
     # ["RSSI"]: xxxx - уровень RSSI в dBm на входе приемника при получении данного пакета в виде десятичного числа со знаком.@n
-    # ['OPTIONS']: "xx" - опции. Два шестнадцатеричных символа без 0x. Биты байта опций:@n
+    # ["OPTIONS"]: "xx" - опции. Два шестнадцатеричных символа без 0x. Биты байта опций:@n
     # 0 - информация о требовании отправителем подтверждения о приеме пакета: 0 - подтверждение требовалось, 1 - подтверждение не требовалось.@n
     # 1 - информация о режиме отправки пакета: 0 - пакет передавался в адресном режиме, 1 - пакет передавался с широковещательным адресом.@n
     # 2 - зарезервирован.@n
     # 3 - зарезервирован.@n
-    # 4 - зарезервирован.@n
-    # 5 - зарезервирован.@n
-    # 6 - зарезервирован.@n
+    # 4 - информация о режиме передачи пакета: 0 - пакет передан в режиме CCA (Clear Channel Assessment), 1 - режим CCA при передаче пакета был выключен.@n
+    # 5 - информация о шифровании пакета в эфире: 0 - пакет не был зашифрован при передаче в эфире, 1 - пакет был зашифрован.@n
+    # 6 - буферизация пакета перед отправкой: 0 - пакет предназначался модулю, постоянно находящемуся в режиме приема, 1 - пакет был буферизирован перед передачей и был адресован "спящему" узлу.@n
     # 7 - зарезервирован.@n
-    # ['DATA']: "xxx...x" - данные в виде строки шестнадцатеричных символов без префикса 0x.@n 
+    # ["DATA"]: "xxx...x" - данные в виде строки шестнадцатеричных символов без префикса 0x.@n 
     # ["CHECKSUM"]: "xx" - контрольная сумма. Два шестнадцатеричных символа без 0x.@n
     # Если пакета данного типа в буфере не обнаружено, то возвращается пустой словарь.
     def get_tx_request(self):
@@ -426,6 +441,42 @@ class SerialStar:
                 break
         return self.frame
         
+    ## Получение фрейма расширенного формата с данными от удаленного модуля, переданными с байтом опций: API-фрейм 0x82.
+    # Данная функция применяется для опроса приемного буфера последовательного порта и поиска в нем фрейма 0x82. Поиск осуществляется до первого найденного фрейма данного типа. При этом все прочие пакеты,
+    # принятые до первого пакета 0x82 теряются. Делается ограниченное число попыток получения данного типа фрейма. Число попыток регулируется константой LOCAL_RESPONSE_RETRY_COUNT и равно 
+    # по-умолчанию 1. Функция обычно применяется, если опрос модуля осуществляется из основного скрипта периодической проверкой, а не с помощью callback-функций.
+    # @return В случае успешного приема пакета словарь (dictionary) следующего вида:@n
+    # ["DELIMITER"]: "7E" - стартовый байт фрейма.@n
+    # ["LENGTH"]: xx - длина пакета  в байтах между полями length и checksum (то есть всегда на 4 байта меньше, чем полная длина принятого пакета). Десятичное число.@n
+    # ["FRAME_TYPE"]: "xx" - "82" тип фрейма.@n
+    # ["SOURCE_ADDRESS_DEC"]: "xxxxx" - адрес источника пакета в виде строки десятичных символов.@n
+    # ["SOURCE_ADDRESS_HEX"]: "xxxx" - адрес источника пакета в виде строки шестнадцатеричных символов без префикса 0x.@n
+    # ["RSSI"]: xxxx - уровень RSSI в dBm на входе приемника при получении данного пакета в виде десятичного числа со знаком.@n
+    # ["OPTIONS"]: "xx" - опции. Два шестнадцатеричных символа без 0x. Биты байта опций:@n
+    # 0 - информация о требовании отправителем подтверждения о приеме пакета: 0 - подтверждение требовалось, 1 - подтверждение не требовалось.@n
+    # 1 - информация о режиме отправки пакета: 0 - пакет передавался в адресном режиме, 1 - пакет передавался с широковещательным адресом.@n
+    # 2 - зарезервирован.@n
+    # 3 - зарезервирован.@n
+    # 4 - информация о режиме передачи пакета: 0 - пакет передан в режиме CCA (Clear Channel Assessment), 1 - режим CCA при передаче пакета был выключен.@n
+    # 5 - информация о шифровании пакета в эфире: 0 - пакет не был зашифрован при передаче в эфире, 1 - пакет был зашифрован.@n
+    # 6 - буферизация пакета перед отправкой: 0 - пакет предназначался модулю, постоянно находящемуся в режиме приема, 1 - пакет был буферизирован перед передачей и был адресован "спящему" узлу.@n
+    # 7 - зарезервирован.@n
+    # ["FRAME_ID"]: "xx" - идентификатор фрейма. Два шестнадцатеричных символа без 0x.@n
+    # ["PREVIOUS_HOP_ADDRESS_DEC"]: "xxxxx" - адрес непосредственного отправителя пакета в виде строки десятичных символов.@n
+    # ["PREVIOUS_HOP_ADDRESS_HEX"]: "xxxx" - адрес непосредственного отправителя пакета в виде строки шестнадцатеричных символов без префикса 0x.@n
+    # ["DATA"]: "xxx...x" - данные в виде строки шестнадцатеричных символов без префикса 0x.@n 
+    # ["CHECKSUM"]: "xx" - контрольная сумма. Два шестнадцатеричных символа без 0x.@n
+    # Если пакета данного типа в буфере не обнаружено, то возвращается пустой словарь.
+    def get_tx_request_extended(self):
+        self.frame = {}
+        for i in range(0, self.LOCAL_RESPONSE_RETRY_COUNT):
+            response = self.read_rx_api("82")
+            if not "ERROR" in response:
+                self.filter_frame()
+                self.export_81_82_8F_90_frame(self.get_frame_common_fields())
+                break
+        return self.frame
+        
     ## Получение фрейма с данными от удаленного модуля, переданными без байта опций: API-фрейм 0x8F.
     # Данная функция применяется для опроса приемного буфера последовательного порта и поиска в нем фрейма 0x8F. Поиск осуществляется до первого найденного фрейма данного типа. При этом все прочие пакеты,
     # принятые до первого пакета 0x8F теряются. Делается ограниченное число попыток получения данного типа фрейма. Число попыток регулируется константой LOCAL_RESPONSE_RETRY_COUNT и равно 
@@ -433,11 +484,11 @@ class SerialStar:
     # @return В случае успешного приема пакета словарь (dictionary) следующего вида:@n
     # ["DELIMITER"]: "7E" - стартовый байт фрейма.@n
     # ["LENGTH"]: xx - длина пакета в байтах между полями length и checksum (то есть всегда на 4 байта меньше, чем полная длина принятого пакета). Десятичное число.@n
-    # ["FRAME_TYPE"]: "xx" - "81" тип фрейма.@n
-    # ["SOURCE_ADDRESS_DEC"]: "xxxxx" - адрес отправителя в виде строки десятичных символов.@n
-    # ["SOURCE_ADDRESS_HEX"]: "xxxx" - адрес отправителя в виде строки шестнадцатеричных символов без префикса 0x.@n
+    # ["FRAME_TYPE"]: "xx" - "8F" тип фрейма.@n
+    # ["SOURCE_ADDRESS_DEC"]: "xxxxx" - адрес источника пакета в виде строки десятичных символов.@n
+    # ["SOURCE_ADDRESS_HEX"]: "xxxx" - адрес источника пакета в виде строки шестнадцатеричных символов без префикса 0x.@n
     # ["RSSI"]: xxxx - уровень RSSI в dBm на входе приемника при получении данного пакета в виде десятичного числа со знаком.@n
-    # ['OPTIONS']: "xx" - опции. Два шестнадцатеричных символа без 0x. Биты байта опций:@n
+    # ["OPTIONS"]: "xx" - опции. Два шестнадцатеричных символа без 0x. Биты байта опций:@n
     # 0 - зарезервирован.@n
     # 1 - информация о режиме отправки пакета: 0 - пакет передавался в адресном режиме, 1 - пакет передавался с широковещательным адресом.@n
     # 2 - зарезервирован.@n
@@ -446,7 +497,7 @@ class SerialStar:
     # 5 - зарезервирован.@n
     # 6 - зарезервирован.@n
     # 7 - зарезервирован.@n
-    # ['DATA']: "xxx...x" - данные в виде строки шестнадцатеричных символов без префикса 0x.@n 
+    # ["DATA"]: "xxx...x" - данные в виде строки шестнадцатеричных символов без префикса 0x.@n 
     # ["CHECKSUM"]: "xx" - контрольная сумма. Два шестнадцатеричных символа без 0x.@n
     # Если пакета данного типа в буфере не обнаружено, то возвращается пустой словарь.
     def get_tx_request_without_option(self):
@@ -455,16 +506,59 @@ class SerialStar:
             response = self.read_rx_api("8F")
             if not "ERROR" in response:
                 self.filter_frame()
-                self.export_81_8F_frame(self.get_frame_common_fields())
+                self.export_81_82_8F_90_frame(self.get_frame_common_fields())
                 break
         return self.frame
         
-    def export_81_8F_frame(self, ss):
+    ## Получение фрейма расширенного формата с данными от удаленного модуля, переданными без байта опций: API-фрейм 0x90.
+    # Данная функция применяется для опроса приемного буфера последовательного порта и поиска в нем фрейма 0x90. Поиск осуществляется до первого найденного фрейма данного типа. При этом все прочие пакеты,
+    # принятые до первого пакета 0x90 теряются. Делается ограниченное число попыток получения данного типа фрейма. Число попыток регулируется константой LOCAL_RESPONSE_RETRY_COUNT и равно 
+    # по-умолчанию 1. Функция обычно применяется, если опрос модуля осуществляется из основного скрипта периодической проверкой, а не с помощью callback-функций.
+    # @return В случае успешного приема пакета словарь (dictionary) следующего вида:@n
+    # ["DELIMITER"]: "7E" - стартовый байт фрейма.@n
+    # ["LENGTH"]: xx - длина пакета в байтах между полями length и checksum (то есть всегда на 4 байта меньше, чем полная длина принятого пакета). Десятичное число.@n
+    # ["FRAME_TYPE"]: "xx" - "90" тип фрейма.@n
+    # ["SOURCE_ADDRESS_DEC"]: "xxxxx" - адрес источника пакета в виде строки десятичных символов.@n
+    # ["SOURCE_ADDRESS_HEX"]: "xxxx" - адрес источника пакета в виде строки шестнадцатеричных символов без префикса 0x.@n
+    # ["RSSI"]: xxxx - уровень RSSI в dBm на входе приемника при получении данного пакета в виде десятичного числа со знаком.@n
+    # ["OPTIONS"]: "xx" - опции. Два шестнадцатеричных символа без 0x. Биты байта опций:@n
+    # 0 - зарезервирован.@n
+    # 1 - информация о режиме отправки пакета: 0 - пакет передавался в адресном режиме, 1 - пакет передавался с широковещательным адресом.@n
+    # 2 - зарезервирован.@n
+    # 3 - зарезервирован.@n
+    # 4 - зарезервирован.@n
+    # 5 - зарезервирован.@n
+    # 6 - зарезервирован.@n
+    # 7 - зарезервирован.@n
+    # ["FRAME_ID"]: "xx" - идентификатор фрейма. Два шестнадцатеричных символа без 0x.@n
+    # ["PREVIOUS_HOP_ADDRESS_DEC"]: "xxxxx" - адрес непосредственного отправителя пакета в виде строки десятичных символов.@n
+    # ["PREVIOUS_HOP_ADDRESS_HEX"]: "xxxx" - адрес непосредственного отправителя пакета в виде строки шестнадцатеричных символов без префикса 0x.@n
+    # ["DATA"]: "xxx...x" - данные в виде строки шестнадцатеричных символов без префикса 0x.@n 
+    # ["CHECKSUM"]: "xx" - контрольная сумма. Два шестнадцатеричных символа без 0x.@n
+    # Если пакета данного типа в буфере не обнаружено, то возвращается пустой словарь.
+    def get_tx_request_without_option_extended(self):
+        self.frame = {}
+        for i in range(0, self.LOCAL_RESPONSE_RETRY_COUNT):
+            response = self.read_rx_api("90")
+            if not "ERROR" in response:
+                self.filter_frame()
+                self.export_81_82_8F_90_frame(self.get_frame_common_fields())
+                break
+        return self.frame
+        
+    def export_81_82_8F_90_frame(self, ss):
         self.frame["SOURCE_ADDRESS_DEC"] = str(int(ss[8:12], 16)).zfill(5)
         self.frame["SOURCE_ADDRESS_HEX"] = ss[8:12]
         self.frame["RSSI"] = int(ss[12:14], 16) - 256
-        self.frame['OPTIONS'] = ss[14:16]
-        self.frame['DATA'] = ss[16:len(ss) - 2]
+        self.frame["OPTIONS"] = ss[14:16]
+        if self.frame["FRAME_TYPE"] == "82" or self.frame["FRAME_TYPE"] == "90":
+            self.frame["FRAME_ID"] = ss[16:18]
+            self.frame["PREVIOUS_HOP_ADDRESS_DEC"] = str(int(ss[18:22], 16)).zfill(5)
+            self.frame["PREVIOUS_HOP_ADDRESS_HEX"] = ss[18:22]
+            offset = 6
+        else:
+            offset = 0
+        self.frame["DATA"] = ss[16 + offset:len(ss) - 2]
         self.frame["CHECKSUM"] = ss[len(ss) - 2 : len(ss)]
         return self.frame  
 
@@ -658,12 +752,12 @@ class SerialStar:
     # ["DELIMITER"]: "7E" - стартовый байт фрейма.@n
     # ["LENGTH"]: xx - длина пакета в байтах между полями length и checksum.@n
     # ["FRAME_TYPE"]: "xx" - "97" тип фрейма.@n
-    # ["SOURCE_ADDRESS_DEC"]: "xxxxx" - адрес отправителя пакета в виде строки десятичных символов.@n
-    # ["SOURCE_ADDRESS_HEX"]: "xxxx" - адрес отправителя пакета в виде строки шестнадцатеричных символов без префикса 0x.@n
+    # ["SOURCE_ADDRESS_DEC"]: "xxxxx" - адрес источника пакета в виде строки десятичных символов.@n
+    # ["SOURCE_ADDRESS_HEX"]: "xxxx" - адрес источника пакета в виде строки шестнадцатеричных символов без префикса 0x.@n
     # ["RSSI"]: xxxx - уровень RSSI в dBm на входе приемника при получении данного пакета в виде десятичного числа со знаком.@n
     # ["OPTIONS"]: "00" - опции. В текущей версии поле зарезервировано.@n
     # ["AT_COMMAND"]: "xx" - AT-команда в виде двух ASCII-символов.@n
-    # ["STATUS"]: "00" - статус команды. В текущей версии поле зарезервировано.@n
+    # ["STATUS"]: "xx" - статус команды. "00" - команда выполнена успешно, "02" - команда не поддерживается удаленным модулем.@n
     # ["AT_PARAMETER"]: "xx..x" - параметр команды в виде строки шестнадцатеричных символов без префикса 0x. Если команда записывала данные, то значением этого ключа является пустая строка.@n
     # ["CHECKSUM"]: "xx" - контрольная сумма. Два шестнадцатеричных символа без 0x.@n    
     # Если пакета данного типа в буфере не обнаружено, то возвращается пустой словарь. 
@@ -677,19 +771,56 @@ class SerialStar:
                 break
         return self.frame
         
-    def export_97_frame(self, ss):
+    ## Получение фрейма расширенного формата с ответом от удаленного модуля на отправленную ему AT-команду: API-фрейм 0x98.
+    # Данная функция применяется для опроса приемного буфера последовательного порта и поиска в нем фрейма 0x98. Поиск осуществляется до первого найденного фрейма данного типа. При этом все прочие пакеты,
+    # принятые до первого пакета 0x98 теряются. Делается ограниченное число попыток получения данного типа фрейма. Число попыток регулируется константой REMOTE_RX_STATUS_RETRY_COUNT и равно 
+    # по-умолчанию 1. Функция обычно применяется, если опрос модуля осуществляется из основного скрипта периодической проверкой, а не с помощью callback-функций.
+    # @return В случае успешного приема пакета словарь (dictionary) следующего вида:@n
+    # ["DELIMITER"]: "7E" - стартовый байт фрейма.@n
+    # ["LENGTH"]: xx - длина пакета в байтах между полями length и checksum.@n
+    # ["FRAME_TYPE"]: "xx" - "98" тип фрейма.@n
+    # ["SOURCE_ADDRESS_DEC"]: "xxxxx" - адрес источника пакета пакета в виде строки десятичных символов.@n
+    # ["SOURCE_ADDRESS_HEX"]: "xxxx" - адрес источника пакета пакета в виде строки шестнадцатеричных символов без префикса 0x.@n
+    # ["RSSI"]: xxxx - уровень RSSI в dBm на входе приемника при получении данного пакета в виде десятичного числа со знаком.@n
+    # ["OPTIONS"]: "00" - опции. В текущей версии поле зарезервировано.@n
+    # ["FRAME_ID"]: "xx" - идентификатор фрейма. Два шестнадцатеричных символа без 0x.@n
+    # ["PREVIOUS_HOP_ADDRESS_DEC"]: "xxxxx" - адрес непосредственного отправителя пакета в виде строки десятичных символов.@n
+    # ["PREVIOUS_HOP_ADDRESS_HEX"]: "xxxx" - адрес непосредственного отправителя пакета в виде строки шестнадцатеричных символов без префикса 0x.@n
+    # ["AT_COMMAND"]: "xx" - AT-команда в виде двух ASCII-символов.@n
+    # ["STATUS"]: "xx" - статус команды. "00" - команда выполнена успешно, "02" - команда не поддерживается удаленным модулем.@n
+    # ["AT_PARAMETER"]: "xx..x" - параметр команды в виде строки шестнадцатеричных символов без префикса 0x. Если команда записывала данные, то значением этого ключа является пустая строка.@n
+    # ["CHECKSUM"]: "xx" - контрольная сумма. Два шестнадцатеричных символа без 0x.@n    
+    # Если пакета данного типа в буфере не обнаружено, то возвращается пустой словарь. 
+    def get_remote_at_command_response_extended(self): #Getting remote AT-command delivery status API-frame(Frame type 0x98).
+        self.frame = {}
+        for i in range(0, self.REMOTE_RX_STATUS_RETRY_COUNT):
+            response = self.read_rx_api("98")
+            if not "ERROR" in response:
+                self.filter_frame()
+                self.export_97_98_frame(self.get_frame_common_fields())
+                break
+        return self.frame        
+        
+    def export_97_98_frame(self, ss):
         self.frame["SOURCE_ADDRESS_DEC"] = str(int(ss[8:12], 16)).zfill(5)
         self.frame["SOURCE_ADDRESS_HEX"] = ss[8:12]
         self.frame["RSSI"] = int(ss[12:14], 16) - 256
         self.frame["OPTIONS"] = ss[14:16]
-        self.frame["AT_COMMAND"] = binascii.unhexlify(ss[16:20]).decode("ascii")
-        self.frame["STATUS"] = ss[20:22]
+        if self.frame["FRAME_TYPE"] == "98":
+            self.frame["FRAME_ID"] = ss[16:18]
+            self.frame["PREVIOUS_HOP_ADDRESS_DEC"] = str(int(ss[18:22], 16)).zfill(5)
+            self.frame["PREVIOUS_HOP_ADDRESS_HEX"] = ss[18:22]
+            offset = 6
+        else:
+            offset = 0
+        self.frame["AT_COMMAND"] = binascii.unhexlify(ss[16 + offset:20 + offset]).decode("ascii")
+        self.frame["STATUS"] = ss[20 + offset:22 + offset]
         if len(ss) - 2 == 0:
             self.frame["AT_PARAMETER_HEX"] = []
             self.frame["AT_PARAMETER"] = []
         else:
-            self.frame["AT_PARAMETER_HEX"] = ss[22:len(ss) - 2]
-            self.frame["AT_PARAMETER"] = binascii.unhexlify(ss[22:len(ss) - 2])
+            self.frame["AT_PARAMETER_HEX"] = ss[22 + offset:len(ss) - 2]
+            self.frame["AT_PARAMETER"] = binascii.unhexlify(ss[22 + offset:len(ss) - 2])
         self.frame["CHECKSUM"] = ss[len(ss) - 2 : len(ss)]
         return self.frame
 
@@ -701,8 +832,8 @@ class SerialStar:
     # ["DELIMITER"]: "7E" - стартовый байт фрейма.@n
     # ["LENGTH"]: xx - длина пакета в байтах между полями length и checksum.@n
     # ["FRAME_TYPE"]: "xx" - "83" тип фрейма.@n
-    # ["SOURCE_ADDRESS_DEC"]: "xxxxx" - адрес отправителя пакета в виде строки десятичных символов.@n
-    # ["SOURCE_ADDRESS_HEX"]: "xxxx" - адрес отправителя пакета в виде строки шестнадцатеричных символов без префикса 0x.@n
+    # ["SOURCE_ADDRESS_DEC"]: "xxxxx" - адрес источника пакета пакета в виде строки десятичных символов.@n
+    # ["SOURCE_ADDRESS_HEX"]: "xxxx" - адрес источника пакета пакета в виде строки шестнадцатеричных символов без префикса 0x.@n
     # ["RSSI"]: xxxx - уровень RSSI в dBm на входе приемника при получении данного пакета в виде десятичного числа со знаком.@n
     # ["OPTIONS"]: "xx" - опции приема. "00" - пакет предназначался данному модулю, "01" - пакет был передан с широковещательным адресом.@n
     # ["TEMPERATURE"]: xxx - температура встроенного термодатчика модуля отправителя в градусах Цельсия, целое десятичное число со знаком.@n
@@ -734,21 +865,76 @@ class SerialStar:
             response = self.read_rx_api("83")
             if not "ERROR" in response:
                 self.filter_frame()
-                self.export_83_frame(self.get_frame_common_fields())
+                self.export_83_84_frame(self.get_frame_common_fields())
                 break
         return self.frame
+        
+    ## Получение фрейма расширенного формата с данными о состоянии линий ввода вывода удаленного модуля: API-фрейм 0x84.
+    # Данная функция применяется для опроса приемного буфера последовательного порта и поиска в нем фрейма 0x84. Поиск осуществляется до первого найденного фрейма данного типа. При этом все прочие пакеты,
+    # принятые до первого пакета 0x84 теряются. Делается ограниченное число попыток получения данного типа фрейма. Число попыток регулируется константой IO_SAMPLE_RX_RETRY_COUNT и равно 
+    # по-умолчанию 1. Функция обычно применяется, если опрос модуля осуществляется из основного скрипта периодической проверкой, а не с помощью callback-функций.
+    # @return В случае успешного приема пакета словарь (dictionary) следующего вида:@n
+    # ["DELIMITER"]: "7E" - стартовый байт фрейма.@n
+    # ["LENGTH"]: xx - длина пакета в байтах между полями length и checksum.@n
+    # ["FRAME_TYPE"]: "xx" - "84" тип фрейма.@n
+    # ["SOURCE_ADDRESS_DEC"]: "xxxxx" - адрес источника пакета пакета в виде строки десятичных символов.@n
+    # ["SOURCE_ADDRESS_HEX"]: "xxxx" - адрес источника пакета пакета в виде строки шестнадцатеричных символов без префикса 0x.@n
+    # ["RSSI"]: xxxx - уровень RSSI в dBm на входе приемника при получении данного пакета в виде десятичного числа со знаком.@n
+    # ["OPTIONS"]: "xx" - опции приема. "00" - пакет предназначался данному модулю, "01" - пакет был передан с широковещательным адресом.@n
+    # ["FRAME_ID"]: "xx" - идентификатор фрейма. Два шестнадцатеричных символа без 0x.@n
+    # ["PREVIOUS_HOP_ADDRESS_DEC"]: "xxxxx" - адрес непосредственного отправителя пакета в виде строки десятичных символов.@n
+    # ["PREVIOUS_HOP_ADDRESS_HEX"]: "xxxx" - адрес непосредственного отправителя пакета в виде строки шестнадцатеричных символов без префикса 0x.@n
+    # ["TEMPERATURE"]: xxx - температура встроенного термодатчика модуля отправителя в градусах Цельсия, целое десятичное число со знаком.@n
+    # ["VCC"]: xxxx - напряжение источника питания на модуле отправителе в вольтах. Положительное десятичное число с двумя знаками после запятой.@n
+    # ["DATA_HEX"]: "xx..x" - содержимое поля данных в виде строки шестнадцатеричных символов без префикса 0x.@n
+    # ["DATA_PARSED"]: {pin_number: {pin_mode: value},..} - словарь, ключами которого являются физические номера выводов модуля в виде двух шестнадцатеричных символов без 0x. В качестве значений выступает 
+    # также словарь, с ключом, представляющим собой номер режима ввода/вывода в виде двух шестнадцатеричных символов, например "02", если данная линия работает в режиме аналогового входа. Подробная 
+    # информация о доступных режимах имеется в документации по проекту SerialStar.
+    # Значения словаря - это состояние линии, зависящее от ее режима. Возможные значения:@n
+    # Режим 2 (ANALOG_INPUT) - "xxxx" оцифрованное значение напряжения на входе. Представляет собой четыре шестнадцатеричных символа без 0x. Значащими являются младшие 12 бит. Если число превышает 
+    # 4096, это означает, что напряжение на входе равно 0.@n
+    # Режим 3 (DIGITAL_INPUT) - "HIGH", "LOW".@n
+    # Режим 4 (DIGITAL_OUTPUT_LOW) - "HIGH", "LOW".@n
+    # Режим 5 (DIGITAL_OUTPUT_LOW) - "HIGH", "LOW".@n
+    # Режим 13 (COUNTER_INPUT_1) - "xxxxxxxx" текущее число подсчитанных импульсов на данном входе. Представляет собой восемь шестнадцатеричных символов без 0x.@n
+    # Режим 14 (COUNTER_INPUT_2) - "xxxxxxxx" текущее число подсчитанных импульсов на данном входе. Представляет собой восемь шестнадцатеричных символов без 0x.@n
+    # Режим 15 (WAKEUP_INPUT_FALLING) - "HIGH", "LOW".@n
+    # Режим 16 (WAKEUP_INPUT_RISING) - "HIGH", "LOW".@n
+    # ["DATA_PARSED_DECODED"]: {pin_name: {pin_mode_name: value},..} - словарь, ключами которого являются имена выводов модуля, используемые в проекте SerialStar, в виде двух ASCII-символов, например 
+    # физическому выводу модуля №31, будет соответствовать ключ "R4". В качестве значений выступает также словарь, с ключом, представляющим собой имя режима, так, как оно представлено в документации на
+    # SerialStar, например, если линия работает в режиме аналоговом входа, то ключом словаря будет строка ASCII-символов "ANALOG_INPUT".@n
+    # Значения словаря - это состояние линии, зависящее от ее режима. Возможные значения совпадают с со значениями, представленными выше при описании ключа "DATA_PARSED".@n
+    # ["DATA_RAW"]: "xx..x" - поле данных в виде последовательности байт (тип данных bytearray).@n
+    # ["CHECKSUM"]: "xx" - контрольная сумма. Два шестнадцатеричных символа без 0x.@n    
+    # Если пакета данного типа в буфере не обнаружено, то возвращается пустой словарь. 
+    def get_io_sample_rx_extended(self):
+        self.frame = {}
+        for i in range(0, self.IO_SAMPLE_RX_RETRY_COUNT):
+            response = self.read_rx_api("84")
+            if not "ERROR" in response:
+                self.filter_frame()
+                self.export_83_84_frame(self.get_frame_common_fields())
+                break
+        return self.frame        
 
-    def export_83_frame(self, ss):
+    def export_83_84_frame(self, ss):
         self.frame["SOURCE_ADDRESS_DEC"] = str(int(ss[8:12], 16)).zfill(5)
         self.frame["SOURCE_ADDRESS_HEX"] = ss[8:12]
         self.frame["RSSI"] = int(ss[12:14], 16) - 256
         self.frame["OPTIONS"] = ss[14:16]
-        self.frame["TEMPERATURE"] = int(ss[16:18], 16)
-        self.frame["VCC"] = round(int(ss[18:20], 16) / 51, 2)
-        self.frame["DATA_HEX"] = ss[20:len(ss) - 2]
+        if self.frame["FRAME_TYPE"] == "84":
+            self.frame["FRAME_ID"] = ss[16:18]
+            self.frame["PREVIOUS_HOP_ADDRESS_DEC"] = str(int(ss[18:22], 16)).zfill(5)
+            self.frame["PREVIOUS_HOP_ADDRESS_HEX"] = ss[18:22]
+            offset = 6
+        else:
+            offset = 0
+        self.frame["TEMPERATURE"] = int(ss[16 + offset:18 + offset], 16)
+        self.frame["VCC"] = round(int(ss[18 + offset:20 + offset], 16) / 51, 2)
+        self.frame["DATA_HEX"] = ss[20 + offset:len(ss) - 2]
         self.frame["DATA_PARSED"] = {}
         self.frame["DATA_PARSED_DECODED"] = {}
-        i = 20
+        i = 20 + offset
         while i < len(ss) - 2:
             pin_number = ss[i:i + 2]
             pin_id =  pin_number
@@ -767,7 +953,7 @@ class SerialStar:
             i += sample_length
             self.frame["DATA_PARSED"][pin_id] = {pin_mode_decoded: value}
             self.frame["DATA_PARSED_DECODED"][self.PIN_ID_DECODE[pin_id]] = {self.PIN_MODE_DECODE[pin_mode_decoded]: value}
-        self.frame["DATA_RAW"] = binascii.unhexlify(ss[20:len(ss) - 2])
+        self.frame["DATA_RAW"] = binascii.unhexlify(ss[20 + offset:len(ss) - 2])
         self.frame["CHECKSUM"] = ss[len(ss) - 2 : len(ss)]
         return self.frame
     
@@ -783,9 +969,13 @@ class SerialStar:
                 self.filter_frame()
                 ss = self.get_frame_common_fields()
                 if self.frame["FRAME_TYPE"] == "81" and self.on_rx_81_frame_callback:
-                    self.on_rx_81_frame_callback(self.export_81_8F_frame(ss))
+                    self.on_rx_81_frame_callback(self.export_81_82_8F_90_frame(ss))
+                elif self.frame["FRAME_TYPE"] == "82" and self.on_rx_82_frame_callback:
+                    self.on_rx_82_frame_callback(self.export_81_82_8F_90_frame(ss))
                 elif self.frame["FRAME_TYPE"] == "83" and self.on_rx_83_frame_callback:
-                    self.on_rx_83_frame_callback(self.export_83_frame(ss))              
+                    self.on_rx_83_frame_callback(self.export_83_84_frame(ss))
+                elif self.frame["FRAME_TYPE"] == "84" and self.on_rx_84_frame_callback:
+                    self.on_rx_84_frame_callback(self.export_83_84_frame(ss))       
                 elif self.frame["FRAME_TYPE"] == "87" and self.on_rx_87_frame_callback:
                     self.on_rx_87_frame_callback(self.export_87_88_89_frame(ss))
                 elif self.frame["FRAME_TYPE"] == "88" and self.on_rx_88_frame_callback:
@@ -799,9 +989,13 @@ class SerialStar:
                 elif self.frame["FRAME_TYPE"] == "8C" and self.on_rx_8C_frame_callback:
                     self.on_rx_8C_frame_callback(self.export_8C_frame(ss))
                 elif self.frame["FRAME_TYPE"] == "8F" and self.on_rx_8F_frame_callback:
-                    self.on_rx_8F_frame_callback(self.export_81_8F_frame(ss))                    
+                    self.on_rx_8F_frame_callback(self.export_81_82_8F_90_frame(ss))
+                elif self.frame["FRAME_TYPE"] == "90" and self.on_rx_90_frame_callback:
+                    self.on_rx_90_frame_callback(self.export_81_82_8F_90_frame(ss))
                 elif self.frame["FRAME_TYPE"] == "97" and self.on_rx_97_frame_callback:
-                    self.on_rx_97_frame_callback(self.export_97_frame(ss))                    
+                    self.on_rx_97_frame_callback(self.export_97_98_frame(ss))
+                elif self.frame["FRAME_TYPE"] == "98" and self.on_rx_98_frame_callback:
+                    self.on_rx_98_frame_callback(self.export_97_98_frame(ss))                     
                 else:
                     #print(self.frame)
                     pass
