@@ -21,7 +21,7 @@
 # Для полной проверки требуется 2 модуля. Локальный модуль может иметь произвольный собственный адрес (параметр MY), на удаленном модуле этот параметр должен быть равен 2.
 
 import os, sys
-#sys.path.append('C:\VONBOD\SYSMC\Low-Power RF\Python\MBee') 
+sys.path.append('C:\VONBOD\SYSMC\Low-Power RF\Python\MBee') 
 #sys.path.append('/home/pi/myproject/python') 
 
 from mbee import serialstar

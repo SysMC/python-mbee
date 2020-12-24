@@ -767,7 +767,7 @@ class SerialStar:
             response = self.read_rx_api("97")
             if not "ERROR" in response:
                 self.filter_frame()
-                self.export_97_frame(self.get_frame_common_fields())
+                self.export_97_98_frame(self.get_frame_common_fields())
                 break
         return self.frame
         
