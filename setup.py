@@ -2,7 +2,7 @@
 
 setup(
     name='python-mbee',
-    version="1.1",
+    version="1.2",
     author='von Boduen',
     author_email='mbee@sysmc.ru',
     packages=['mbee'],
